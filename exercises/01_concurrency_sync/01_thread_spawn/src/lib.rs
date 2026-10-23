@@ -157,7 +157,15 @@ pub fn double_in_thread(numbers: Vec<i32>) -> Vec<i32> {
     // TODO: Create a new thread to multiply each element of numbers by 2
     // Use thread::spawn and move closure
     // Use join().unwrap() to get result
-    todo!()
+    
+    let handle = thread::spawn(move||{
+        let x:Vec<i32> =numbers.into_iter().map(|x|x*2).collect();
+        x
+    });
+
+    let ret= handle.join().unwrap();
+
+    ret
 }
 
 /// Sum two vectors in parallel, returning a tuple of two sums.
@@ -167,7 +175,22 @@ pub fn double_in_thread(numbers: Vec<i32>) -> Vec<i32> {
 pub fn parallel_sum(a: Vec<i32>, b: Vec<i32>) -> (i32, i32) {
     // TODO: Create two threads to sum a and b respectively
     // Join both threads to get results
-    todo!()
+    let a = thread::spawn(move||{
+
+        let a_sum:i32 = a.iter().sum(); // 显式指定类型
+        a_sum
+    });
+
+    let b = thread::spawn(move||{
+        let b_sum = b.iter().sum::<i32>();
+        b_sum
+    });
+
+    let a = a.join().unwrap();
+    let b = b.join().unwrap();
+    
+    (a,b)
+
 }
 
 // ============================================================================
@@ -185,7 +208,17 @@ pub fn named_sleeper(value: i32, ms: u64) -> i32 {
     // TODO: Create a thread builder with name "sleeper"
     // TODO: Spawn a thread that sleeps for `ms` milliseconds and returns `value`
     // TODO: Join the thread and return the value
-    todo!()
+    let builder=thread::Builder::new().name("sleeper".to_string()); // builder 返回的是 Result<JoinHandle>
+    let handler=builder.spawn(move||{
+        thread::sleep(Duration::from_millis(ms));
+        value 
+    });
+
+    match handler{
+        Ok(handler)=>handler.join().unwrap(),
+        Err(e)=>panic!("There are some error:{}",e),
+    }
+
 }
 
 thread_local! {
@@ -200,7 +233,20 @@ thread_local! {
 /// Hint: Use `THREAD_COUNT.with(|cell| { ... })` to access the thread‑local variable.
 pub fn increment_thread_local() -> usize {
     // TODO: Use THREAD_COUNT.with to increment and return the new count
-    todo!()
+    
+
+    // 我丢，这个 with_borrow_mut 是可以直接用于内部的元素类型的
+    THREAD_COUNT.with_borrow_mut(|count|{
+        *count+=1;
+    });
+
+
+    // 不能直接拿出来
+    // THREAD_COUNT.take()
+
+    let num = THREAD_COUNT.with(|count| count.borrow().clone());
+    num
+
 }
 
 /// Spawn two threads using a **scoped thread** to compute the sum of two slices without moving ownership.
@@ -216,8 +262,17 @@ pub fn scoped_slice_sum(a: &[i32], b: &[i32]) -> (i32, i32) {
     // TODO: Use thread::scope to spawn two threads
     // TODO: Each thread sums its slice
     // TODO: Wait for both threads and return the results
-    todo!()
+    
+
+    // 这个创建应该也是一个作用域内的线程吧，在这个作用域范围内的线程
+    // 可以保证他们的引用是有效的
+    thread::scope(|s|{
+        let h1 = s.spawn(||a.iter().sum::<i32>()); // 这个还必须在末尾指定类型呢
+        let h2 = s.spawn(||b.iter().sum::<i32>());
+        (h1.join().unwrap(),h2.join().unwrap())
+    })
 }
+
 
 /// Handle a possible panic in a spawned thread.
 ///
@@ -233,7 +288,22 @@ pub fn scoped_slice_sum(a: &[i32], b: &[i32]) -> (i32, i32) {
 pub fn handle_panic(value: i32, should_panic: bool) -> Result<i32, ()> {
     // TODO: Spawn a thread that either panics or returns value
     // TODO: Join and map the result appropriately
-    todo!()
+
+    let handler = thread::spawn(move||{
+        if should_panic{
+            panic!("oops");
+        }else{
+            value
+        }
+    });
+
+
+    match handler.join(){
+        Ok(value)=>Ok(value),
+        Err(_)=>return Err(())
+    }
+
+
 }
 
 #[cfg(test)]
