@@ -18,7 +18,23 @@ pub fn simple_send_recv(items: Vec<String>) -> Vec<String> {
     // TODO: Spawn thread to send each element in items
     // TODO: In main thread, receive all messages and collect into Vec
     // Hint: When all Senders are dropped, recv() returns Err
-    todo!()
+    let (tx,rx)=mpsc::channel();
+
+    thread::spawn(move||{
+        for ele in items{
+            tx.send(ele).unwrap();
+        }
+    });
+    
+    let mut ans = vec![];
+
+    // 直接用迭代器，省的操作 Err
+    for r in rx{
+        ans.push(r);
+    }
+
+
+    ans
 }
 
 /// Create `n_producers` producer threads, each sending a message in format `"msg from {id}"`.
@@ -30,7 +46,28 @@ pub fn multi_producer(n_producers: usize) -> Vec<String> {
     // TODO: Clone a sender for each producer
     // TODO: Remember to drop the original sender, otherwise receiver won't finish
     // TODO: Collect all messages and sort
-    todo!()
+    let (tx,rx)=mpsc::channel();
+
+    // for 循环在主线程当中的，所以要等到循环体代码执行完了，才会继续往后执行！
+    // 所以说这一块不是并行的，而是串行执行的
+    for i in 0..n_producers{
+        let tx1=tx.clone();
+        thread::spawn(move||{
+            tx1.send(format!("msg from {}",i)).unwrap();
+        });
+    }
+
+    drop(tx);
+
+    let mut ans = vec![];
+    for r in rx{
+        ans.push(r);
+    }
+
+    ans.sort();
+    ans
+
+
 }
 
 #[cfg(test)]
