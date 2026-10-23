@@ -2,8 +2,8 @@
   "schema": 1,
   "courseId": 2074,
   "repository": "LearningOS/2026a-oscamp-base-yuanjinyu-IT",
-  "commit": "e5b049bb000f0df6454e2b52967bf4d380f631b5",
-  "score": 3,
+  "commit": "a21287d7e1d5ac41eaff1cba1573c567cf4fd082",
+  "score": 11,
   "totalScore": 100,
   "exercises": [
     {
@@ -16,16 +16,16 @@
     {
       "name": "mutex_counter",
       "max": 4,
-      "score": 0,
-      "status": "fail",
-      "exitCode": 101
+      "score": 4,
+      "status": "pass",
+      "exitCode": 0
     },
     {
       "name": "channel",
       "max": 4,
-      "score": 0,
-      "status": "fail",
-      "exitCode": 101
+      "score": 4,
+      "status": "pass",
+      "exitCode": 0
     },
     {
       "name": "process_pipe",
@@ -176,9 +176,9 @@
     }
   ],
   "student": "yuanjinyu-IT",
-  "runId": "39956717674",
+  "runId": "39963999294",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
