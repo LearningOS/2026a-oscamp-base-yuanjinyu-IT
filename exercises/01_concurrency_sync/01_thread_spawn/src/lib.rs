@@ -221,6 +221,7 @@ pub fn named_sleeper(value: i32, ms: u64) -> i32 {
 
 }
 
+// 必须要有 static 
 thread_local! {
     static THREAD_COUNT: RefCell<usize> = RefCell::new(0);
 }
@@ -368,6 +369,8 @@ mod tests {
         }
         let results = counters.lock().unwrap();
         // Each thread should have counted (1, 2) independently.
+
+        println!("******{:?}******",results); // 这里 [(1,2) (1,2)] 就是因为有两个线程，每个线程操作的 thread_local! 是独一份的，一个线程一个 TLS （线程局部变量）
         assert_eq!(results.len(), 2);
         assert!(results.contains(&(1, 2)));
     }

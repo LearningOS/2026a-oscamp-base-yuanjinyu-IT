@@ -31,7 +31,7 @@
 //! Each function includes a `TODO` comment indicating where you need to write code.
 //! Run `cargo test` to check your implementations.
 
-use std::io::{self, Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::process::{Command, Stdio};
 
 /// Execute the given shell command and return its stdout output.
@@ -53,7 +53,15 @@ pub fn run_command(program: &str, args: &[&str]) -> String {
     // TODO: Set stdout to Stdio::piped()
     // TODO: Execute with .output() and get output
     // TODO: Convert stdout to String and return
-    todo!()
+    let output = Command::new(program) // 新建一个子进程
+        .args(args) // 向子进程当中传入参数
+        .stdout(Stdio::piped()) // 配置一个 子进程的标准输出流 到 父进程 的 管道（将子进程和父进程之间建立管道）
+        .output() // 等待 获取子进程的 输出结果 ，这个 Output 当中包含很多字段的！（且 Output 方法会等待结果）
+        .expect("failed to execute process");
+
+
+    String::from_utf8(output.stdout).expect("invalid utf-8")
+
 }
 
 /// Write data to child process (cat) stdin via pipe and read its stdout output.
@@ -89,7 +97,36 @@ pub fn pipe_through_cat(input: &str) -> String {
     // TODO: Write input to child process stdin
     // TODO: Drop stdin to close pipe (otherwise cat won't exit)
     // TODO: Read output from child process stdout
-    todo!()
+    let mut child = Command::new("cat")
+        .stdin(Stdio::piped()) // 配置 子进程的输入流，将其 和 父进程建立管道（这样的 配置 描述，我认为更加合理一点）
+        .stdout(Stdio::piped())  // 配置 子进程的输出流，将其 和 父进程 建立管道
+        .spawn()
+        .unwrap();
+
+    // 拿到子进程的输入流，往其中发送消息
+    // 因为建立管道了，所以可以做到
+    let mut stdin = child.stdin.take().unwrap();
+    stdin.write_all(input.as_bytes()).unwrap();
+
+    // 关闭这条单向通道，使得子进程可以后续运行
+    drop(stdin);
+
+    let mut output =String::new();
+
+    // 拿到子进程的输出流当中的内容，也是利用管道做到的
+    child
+        .stdout
+        .take()
+        .unwrap()
+        .read_to_string(&mut output)
+        .unwrap();
+    
+    // 等待子进程运行结束 
+    /* 在 Unix/Linux 中，子进程退出后，内核还会保留一部分退出状态信息，直到父进程通过 wait 系列系统调用回收。 */
+    child.wait().unwrap();
+
+    output
+
 }
 
 /// Get child process exit code.
@@ -110,7 +147,13 @@ pub fn get_exit_code(command: &str) -> i32 {
     // TODO: Use Command::new("sh").args(["-c", command])
     // TODO: Execute and get status
     // TODO: Return exit code
-    todo!()
+    let status = Command::new("sh")
+        .args(["-c",command])
+        .status() // 启动进程并且等待返回结果！返回 ExitStatus
+        .unwrap();
+
+    status.code().unwrap_or(-1)
+
 }
 
 /// Execute the given shell command and return its stdout output as a `Result`.
@@ -137,7 +180,17 @@ pub fn run_command_with_result(program: &str, args: &[&str]) -> io::Result<Strin
     // TODO: Set stdout to Stdio::piped()
     // TODO: Execute with .output() and handle Result
     // TODO: Convert stdout to String with from_utf8, mapping errors to io::Error
-    todo!()
+    let output = Command::new(program)
+        .args(args)
+        .stdout(Stdio::piped())
+        .output()?;
+
+
+    // 将其转化为 io::Error 
+    String::from_utf8(output.stdout).map_err(|e|{
+        io::Error::new(io::ErrorKind::InvalidData,e)
+    })
+
 }
 
 /// Interact with `grep` via bidirectional pipes, filtering lines that contain a pattern.
@@ -167,7 +220,34 @@ pub fn pipe_through_grep(pattern: &str, input: &str) -> String {
     // TODO: Drop stdin to close pipe
     // TODO: Read output from child stdout line by line
     // TODO: Collect and return matching lines
-    todo!()
+    let mut child = Command::new("grep")
+        .arg(pattern)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(input.as_bytes()).unwrap();
+    }// 在这里释放 stdin 
+
+    let stdout = child.stdout.take().unwrap();
+    let reader = BufReader::new(stdout);
+
+    let mut result = String::new();
+    for line in reader.lines(){
+        let line = line.unwrap();
+        result.push_str(&line);
+        result.push('\n');
+    }
+
+    // 显式调用 wait，让 父进程 可以清理子进程的相关资源
+    // 前面的函数当中不使用，那是因为有 output() 或者是 status() 方法！可以等待子进程彻底结束（包括资源清理！）
+    child.wait().unwrap();
+
+    result
+
 }
 
 #[cfg(test)]
