@@ -38,6 +38,7 @@
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
+use core::sync::atomic::Ordering;
 
 /// Free block header, stored at the beginning of each free memory block
 struct FreeBlock {
@@ -82,6 +83,7 @@ impl FreeListAllocator {
     }
 
     #[cfg(test)]
+    // 返回的 指针 就指向了第一个节点！（没有哨兵节点）
     fn free_list_head(&self) -> *mut FreeBlock {
         *self.free_list.lock().unwrap()
     }
@@ -90,6 +92,8 @@ impl FreeListAllocator {
     fn set_free_list_head(&self, head: *mut FreeBlock) {
         *self.free_list.lock().unwrap() = head;
     }
+
+
 
     #[cfg(not(test))]
     fn free_list_head(&self) -> *mut FreeBlock {
@@ -108,6 +112,9 @@ unsafe impl GlobalAlloc for FreeListAllocator {
         let size = layout.size().max(core::mem::size_of::<FreeBlock>());
         let align = layout.align().max(core::mem::align_of::<FreeBlock>());
 
+
+
+
         // TODO: Step 1 — traverse free_list, find a suitable block (first-fit)
         //
         // Hints:
@@ -115,11 +122,90 @@ unsafe impl GlobalAlloc for FreeListAllocator {
         // - Check if curr address satisfies align, and (*curr).size >= size
         // - If found, remove it from the list (update prev's next or the free_list head)
         // - Return curr as *mut u8
+        
+        // 指向当前节点的前一个节点
+        let mut prev : *mut FreeBlock = null_mut();
+        // 取出第一个节点
+        let mut curr= self.free_list_head();
+
+        // 当前节点不为空，就继续走
+        while !curr.is_null() {
+            unsafe{
+                // 检查对齐和内存大小
+                if (curr as usize) % align == 0 && (*curr).size>=size{
+                    // 找到合适空闲块了
+
+                    let next = (*curr).next;
+                    
+                    if prev.is_null(){
+                        // 需要删除的是第一个节点，因为 prev 此时为空
+                        self.set_free_list_head(next);
+                    }else{
+                        // 删除的是普通节点
+                        (*prev).next=next;
+                    }
+
+                    // 直接转换为指向 u8 的指针
+                    return curr as *mut u8;
+                }
+
+            }
+
+            // 继续往后遍历
+            prev=curr;
+            curr=(*curr).next;
+        }
+
 
         // TODO: Step 2 — no suitable block in free_list, allocate from bump region
         //
         // Same logic as 02_bump_allocator's alloc
-        todo!()
+
+
+        // 循环结束了之后都没返回，代表一直没找到
+
+    
+        
+        // 使用强内存序，确定 bump allocation 当中的内容
+        let mut current = self.bump_next.load(Ordering::SeqCst);
+
+        loop{
+            // 还是对齐地址，只不过这里再进行减法的时候，使用的是安全减法
+
+            let Some(aligned_addr)=current.checked_add(align-1) else {
+                return null_mut();
+            };
+
+            // 对齐地址的最后一步
+            let start = aligned_addr & !(align-1);
+
+
+            // 计算分配结束地址
+            let Some(end) = start.checked_add(size) else {
+                return null_mut();
+            };
+
+            // 检查是否放得下
+            if end > self.heap_end{
+                return null_mut();
+            }
+
+            // 开始 CAS 抢占
+            // 这里肯定是 weak 啊，不可能是强的，如果是强的，就不用 loop 循环了
+            // 这里必须是 CAS 的，因为这是一个全局分配器，各个线程都可能使用
+            match self.bump_next.compare_exchange_weak(current, end, Ordering::SeqCst, Ordering::Relaxed){
+                // 成功了
+                Ok(_) => {
+                    return start as *mut u8;
+                },
+                Err(actual)=>{
+                    current=actual
+                }
+            }
+
+        }
+
+
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
@@ -131,7 +217,29 @@ unsafe impl GlobalAlloc for FreeListAllocator {
         // 1. Cast ptr to *mut FreeBlock
         // 2. Write FreeBlock { size, next: current list head }
         // 3. Update free_list head to ptr
-        todo!()
+
+        // 先转化为 FreeBlock 指针
+        let block = ptr.cast::<FreeBlock>();
+
+
+        // 获取当前链表头
+        let head = self.free_list_head(); 
+
+        // 将释放的内存写作 FreeBlock
+        unsafe{
+
+            // 我擦，还有 写 方法
+            block.write(FreeBlock{
+                size,
+                next:head
+            });
+        }
+
+        // 更新链表头
+        self.set_free_list_head(block);
+
+
+
     }
 }
 

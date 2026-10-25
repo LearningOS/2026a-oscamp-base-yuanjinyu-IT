@@ -24,10 +24,25 @@
 /// # Safety
 /// `dst` and `src` must each point to at least `n` bytes of valid memory.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn my_memcpy(dst: *mut u8, src: *const u8, n: usize) -> *mut u8 {
+pub unsafe extern "C" fn my_memcpy(dst: *mut u8, src: *const u8, n: usize) -> *mut u8 { // 这是裸指针
     // TODO: Implement memcpy
     // Hint: read bytes from src one by one and write to dst
-    todo!()
+    
+    let mut  i = 0;
+    // 从 0 开始进行操作，也就是 0 —— n-1
+    while i < n {
+        
+        // 操作裸指针
+        unsafe{
+            let byte = src.add(i).read();
+            dst.add(i).write(byte)
+        }    
+
+        i+=1;
+    } 
+
+    dst
+
 }
 
 /// Set `n` bytes starting at `dst` to the value `c`.
@@ -39,7 +54,13 @@ pub unsafe extern "C" fn my_memcpy(dst: *mut u8, src: *const u8, n: usize) -> *m
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn my_memset(dst: *mut u8, c: u8, n: usize) -> *mut u8 {
     // TODO: Implement memset
-    todo!()
+    let mut i = 0;
+    while i < n {
+        // add() 返回一个新指针，原来的 dst 指针指向的位置是不变的！
+        dst.add(i).write(c);
+        i+=1;
+    }
+    dst
 }
 
 /// Copy `n` bytes from `src` to `dst`, correctly handling overlapping memory.
@@ -52,7 +73,38 @@ pub unsafe extern "C" fn my_memset(dst: *mut u8, c: u8, n: usize) -> *mut u8 {
 pub unsafe extern "C" fn my_memmove(dst: *mut u8, src: *const u8, n: usize) -> *mut u8 {
     // TODO: Implement memmove
     // Hint: when dst > src and regions overlap, copy backwards (from end to start)
-    todo!()
+
+    // 这里的提示说明了，两块区域可能会有重叠的情况，如果重叠的话，那么就要从后往前复制了
+    let d = dst as usize;
+    let s = src as usize; // 转为地址
+    
+    // 目标在源的后面，并且发生重叠了
+    // s + n 对应的地址比 d 大，代表需要复制的 n 个元素和 d 有重叠的部分（判断是否有重叠）
+    if d > s && d -s < n {
+        // 此时应该反向复制元素
+        let mut i = n;
+        while i > 0 {
+            // 先减一，索引是正确的
+            i-=1;
+            unsafe{
+                dst.add(i).write(src.add(i).read());
+            }
+        }
+        
+    }else{
+        // dst 在 src 的左侧 或 不重叠 -> 直接从前往后复制即可
+        let mut i = 0;
+        while i < n {
+            
+            unsafe{
+                dst.add(i).write(src.add(i).read());
+            }
+            i+=1;
+        }
+
+    }
+
+    dst
 }
 
 /// Return the length of a null-terminated byte string, excluding the trailing null.
@@ -62,7 +114,19 @@ pub unsafe extern "C" fn my_memmove(dst: *mut u8, src: *const u8, n: usize) -> *
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn my_strlen(s: *const u8) -> usize {
     // TODO: Implement strlen
-    todo!()
+    let mut len = 0;
+    loop{
+        // 解引用裸指针，即便函数 unsafe 了，在操作的时候也必须使用 unsafe 块
+        let byte = unsafe{
+            s.add(len).read()
+        };
+        if byte == 0 {
+            break len;
+        }else{
+            len+=1;
+        }
+    }
+    
 }
 
 /// Compare two null-terminated byte strings.
@@ -77,7 +141,36 @@ pub unsafe extern "C" fn my_strlen(s: *const u8) -> usize {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn my_strcmp(s1: *const u8, s2: *const u8) -> i32 {
     // TODO: Implement strcmp
-    todo!()
+    
+    let mut i = 0;
+
+    loop {
+        unsafe {
+            // 读取两个字符串当前位置的字节
+            let byte1 = s1.add(i).read();
+            let byte2 = s2.add(i).read();
+
+            // 遇到第一个不同的字节，立即返回
+            if byte1 < byte2 {
+                return -1;
+            }
+
+            if byte1 > byte2 {
+                return 1;
+            }
+
+            // 两个字节相同，并且都是 '\0'
+            // 说明两个字符串完全相同
+            if byte1 == 0 {
+                return 0;
+            }
+        }
+
+        // 当前字节相同且不为 '\0'，继续比较
+        i += 1;
+    }
+    
+
 }
 
 // ============================================================
