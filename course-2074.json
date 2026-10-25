@@ -2,8 +2,8 @@
   "schema": 1,
   "courseId": 2074,
   "repository": "LearningOS/2026a-oscamp-base-yuanjinyu-IT",
-  "commit": "2e43a25d9ed4a8f301f37e84626265c0eb2ad7de",
-  "score": 39,
+  "commit": "ccd8e138c918b0108ecfebac985790d8c7f7782e",
+  "score": 43,
   "totalScore": 100,
   "exercises": [
     {
@@ -72,9 +72,9 @@
     {
       "name": "atomic_counter",
       "max": 4,
-      "score": 0,
-      "status": "fail",
-      "exitCode": 101
+      "score": 4,
+      "status": "pass",
+      "exitCode": 0
     },
     {
       "name": "atomic_ordering",
@@ -176,9 +176,9 @@
     }
   ],
   "student": "yuanjinyu-IT",
-  "runId": "40178284309",
+  "runId": "40178820480",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
