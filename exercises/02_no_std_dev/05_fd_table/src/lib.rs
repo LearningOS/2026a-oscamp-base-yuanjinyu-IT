@@ -51,39 +51,66 @@ pub struct FdTable {
     // TODO: Design the internal structure
     // Hint: use Vec<Option<Arc<dyn File>>>
     //       the index is the fd number, None means the fd is closed or unallocated
+
+    
+    // fd 表，索引代表对应项
+    // 只要实现了 File trait 的都可以作为元素
+    items:Vec<Option<Arc<dyn File>>>
 }
 
 impl FdTable {
     /// Create an empty fd table
     pub fn new() -> Self {
         // TODO
-        todo!()
+        FdTable{
+            items:Vec::new(),
+        }
     }
+
 
     /// Allocate a new fd, return the fd number.
     ///
     /// Prefers reusing the smallest closed fd number; if no free slot, appends to the end.
     pub fn alloc(&mut self, file: Arc<dyn File>) -> usize {
-        // TODO
-        todo!()
+        
+        // position() 返回第一个满足条件的元素下标，从头开始寻找
+        // 因此返回的是最小空闲的 fd 
+        if let Some(fd) = self.items.iter().position(|slot|slot.is_none()){
+            self.items[fd]=Some(file);
+            fd
+        }else{
+            self.items.push(Some(file));
+            self.items.len()-1
+        }
     }
 
     /// Get the file object for an fd. Returns None if the fd doesn't exist or is closed.
     pub fn get(&self, fd: usize) -> Option<Arc<dyn File>> {
-        // TODO
-        todo!()
+        
+        self.items
+            .get(fd)
+            .and_then(|slot|slot.as_ref()) // 去掉外层 Option 拿到元素本身
+            .cloned() // 然后直接克隆
+
     }
 
     /// Close an fd. Returns true on success, false if the fd doesn't exist or is already closed.
     pub fn close(&mut self, fd: usize) -> bool {
-        // TODO
-        todo!()
+        
+        // 直接 get_mut() ->Option<&mut T>
+        match self.items.get_mut(fd){
+            // 先处理外层 Option，然后处理元素本身的 Option
+            // take() 是将 Option<&mut T> -> Option<T>，然后将原来的 那个引用改为了 None 
+            // 相当于还是得到了 Option 只不过内部类型改变了
+            // 再对结果进行 is_some() 的判断，得到 bool   
+            Some(slot)=>slot.take().is_some(),
+            None=>false,
+        }
     }
 
     /// Return the number of currently allocated fds (excluding closed ones)
     pub fn count(&self) -> usize {
-        // TODO
-        todo!()
+        self.items.iter().filter(|slot|slot.is_some()).count()
     }
 }
 
