@@ -46,6 +46,8 @@ struct FreeBlock {
     next: *mut FreeBlock,
 }
 
+
+#[allow(unused)]
 pub struct FreeListAllocator {
     heap_start: usize,
     heap_end: usize,
