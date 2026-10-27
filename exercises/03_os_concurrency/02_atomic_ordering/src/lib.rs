@@ -25,7 +25,7 @@ pub struct FlagChannel {
 }
 
 impl FlagChannel {
-    pub const fn new() -> Self {
+    pub const fn new() -> Self { // 依旧 const
         Self {
             data: AtomicU32::new(0),
             ready: AtomicBool::new(false),
@@ -40,7 +40,21 @@ impl FlagChannel {
     pub fn produce(&self, value: u32) {
         // TODO: Store data (choose appropriate Ordering)
         // TODO: Set ready = true (choose appropriate Ordering so data writes complete before this)
-        todo!()
+        
+        
+        loop{
+            match self.ready.compare_exchange_weak(false, true, Ordering::AcqRel, Ordering::Acquire){
+                Ok(_)=>{
+                    self.data.store(value, Ordering::Release);
+                    return;
+                },
+                Err(_)=>{
+                    continue;
+                }
+            }
+        }
+
+
     }
 
     /// Consumer: spin-wait for ready flag, then read data.
@@ -51,7 +65,17 @@ impl FlagChannel {
     pub fn consume(&self) -> u32 {
         // TODO: Spin-wait for ready to become true (choose appropriate Ordering)
         // TODO: Read data (choose appropriate Ordering)
-        todo!()
+        
+        loop{
+            match self.ready.compare_exchange_weak(true, false, Ordering::AcqRel, Ordering::Acquire){
+                Ok(_)=>{
+                    return self.data.load(Ordering::Acquire);
+                },
+                Err(_)=>{
+                    continue;
+                }
+            }
+        }
     }
 
     /// Reset channel state
@@ -83,13 +107,25 @@ impl OnceCell {
     pub fn init(&self, val: u32) -> bool {
         // TODO: Use compare_exchange to ensure initialization only once
         // Store value on success
-        todo!()
+        match self.initialized.compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire){
+            Ok(_)=>{ // 成功了
+                self.value.store(val,Ordering::Release); // 仅有一个线程成功，直接 Release
+                return true;
+            },
+            Err(_)=>{ // 失败了
+                return false;
+            }
+        }
     }
 
     /// Get value. Returns Some if initialized, otherwise None.
     pub fn get(&self) -> Option<u32> {
         // TODO: Check initialized flag, then read value
-        todo!()
+        if self.initialized.load(Ordering::Acquire){
+            Some(self.value.load(Ordering::Acquire))
+        }else{
+            None
+        }
     }
 }
 

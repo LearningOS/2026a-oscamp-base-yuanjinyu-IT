@@ -40,23 +40,50 @@ impl<T> SpinLock<T> {
     /// # Safety
     /// Caller must ensure `unlock` is called after using the data.
     pub fn lock(&self) -> &mut T {
-        // TODO
-        todo!()
+
+        // 因为这里是循环，所以必须加 return 
+        loop{ 
+            match self.locked.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed) {
+                Ok(_)=>{
+                    return unsafe {
+                        let x = self.data.get();
+                        x.as_mut_unchecked() // 裸指针直接转为 数据的可变引用
+                        // 是可以保证安全的，因为传入的数据是有效的，这里只是进行了一层转变
+
+                    }
+                },
+                Err(_)=>{
+                    core::hint::spin_loop();
+                }
+            }
+        }
+
     }
 
     /// Release lock.
     ///
     /// TODO: Set locked to false (using Release ordering)
     pub fn unlock(&self) {
-        // TODO
-        todo!()
+        self.locked.store(false, Ordering::Release);
     }
 
     /// Try to acquire lock without spinning.
     /// Returns Some(&mut T) on success, None if lock is busy.
     pub fn try_lock(&self) -> Option<&mut T> {
         // TODO: Single compare_exchange attempt
-        todo!()
+        match self.locked.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed){
+            Ok(_)=>{
+                unsafe{
+                        let x = self.data.get();
+                        Some(x.as_mut_unchecked()) // 裸指针直接转为 数据的可变引用
+                        // 是可以保证安全的，因为传入的数据是有效的，这里只是进行了一层转变
+                }
+                
+            },
+            Err(_)=>{
+                None
+            }
+        } 
     }
 }
 

@@ -13,6 +13,10 @@ use std::cell::UnsafeCell;
 use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicBool, Ordering};
 
+
+
+/* 我说心里话，我觉得这个设计是真的好 */
+
 pub struct SpinLock<T> {
     locked: AtomicBool,
     data: UnsafeCell<T>,
@@ -41,7 +45,16 @@ impl<T> SpinLock<T> {
     pub fn lock(&self) -> SpinGuard<'_, T> {
         // TODO: Spin-wait to acquire lock
         // TODO: Return SpinGuard { lock: self }
-        todo!()
+        loop{
+            match self.locked.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed) {
+                Ok(_)=>{
+                    return SpinGuard { lock: self} // 这里是 self 就行，传入的就是一个引用
+                },
+                Err(_)=>{
+                    core::hint::spin_loop();
+                }
+            }
+        }
     }
 }
 
@@ -51,7 +64,12 @@ impl<T> Deref for SpinGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        todo!()
+        
+        // 这里必然 unsafe 啊
+        unsafe {
+            & *self.lock.data.get() // 直接解引用，再引用
+            // self.lock.data.get().as_ref_unchecked()
+        }
     }
 }
 
@@ -59,7 +77,11 @@ impl<T> Deref for SpinGuard<'_, T> {
 // Return &mut T
 impl<T> DerefMut for SpinGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut T {
-        todo!()
+        // 肯定 unsafe
+        unsafe{
+            &mut *self.lock.data.get() // 直接解引用，再引用
+            // self.lock.data.get().as_mut_unchecked()
+        }
     }
 }
 
@@ -67,8 +89,8 @@ impl<T> DerefMut for SpinGuard<'_, T> {
 // Set lock.locked to false (Release ordering)
 impl<T> Drop for SpinGuard<'_, T> {
     fn drop(&mut self) {
-        todo!()
-    }
+        self.lock.locked.store(false, Ordering::Release);
+    }// 直接改为 false，然后在这里，Guard 这个本体被 drop 
 }
 
 #[cfg(test)]
