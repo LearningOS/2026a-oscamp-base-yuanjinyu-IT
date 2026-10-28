@@ -21,7 +21,10 @@ where
 {
     // TODO: Use tokio::select! to race between future and sleep
     // Or use tokio::time::timeout
-    todo!()
+    tokio::select! {
+        v = future => Some(v),
+        _ = sleep(Duration::from_millis(timeout_ms)) => None,
+    }
 }
 
 /// Race two async tasks, return the result of whichever finishes first.
@@ -34,7 +37,19 @@ where
 {
     // TODO: Use tokio::select! to wait for f1 and f2
     // Return the result of whichever completes first
-    todo!()
+    tokio::select! {
+        // 用 v1 表示 f1 这个 future 的结果，也就是 tokio 当中 future 对应的 JoinHandle<T> 当中的 T
+        // 如果 f1 先完成了，就走这个分支
+        v1 = f1 =>{
+            v1
+        },
+        // 用 v2 表示 f2 这个 future 的结果，也就是 tokio 当中 future 对应的 JoinHandle<T> 当中的 T
+        // 如果 f 先完成了，就走这个分支
+        v2 = f2 =>{
+            v2
+        }
+    }
+    
 }
 
 #[cfg(test)]

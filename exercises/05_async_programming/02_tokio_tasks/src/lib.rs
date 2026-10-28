@@ -7,7 +7,6 @@
 //! - `JoinHandle` waits for task completion
 //! - Concurrent execution between asynchronous tasks
 
-use tokio::task::JoinHandle;
 use tokio::time::{sleep, Duration};
 
 /// Concurrently compute the square of each number in 0..n, collect results and return in order.
@@ -17,7 +16,20 @@ pub async fn concurrent_squares(n: usize) -> Vec<usize> {
     // TODO: Create n asynchronous tasks, each computing i * i
     // TODO: Collect all JoinHandle
     // TODO: Await each one to get result
-    todo!()
+    let mut handlers = vec![];
+    for i in 0..n{
+        handlers.push(tokio::spawn(async move{ // future 不可以传 | | ，不然成闭包了
+            i*i
+        }));
+    }
+
+    let mut ans = vec![];
+    for ele in handlers{
+        ans.push(ele.await.unwrap());
+    }
+    
+    ans
+    
 }
 
 /// Concurrently execute multiple "time-consuming" tasks (simulated with sleep), return all results.
@@ -28,7 +40,23 @@ pub async fn parallel_sleep_tasks(n: usize, duration_ms: u64) -> Vec<usize> {
     // TODO: Create asynchronous task for each id in 0..n
     // TODO: Each task sleeps specified duration and returns its own id
     // TODO: Collect all results and sort
-    todo!()
+    let mut handlers = vec![];
+    for i in 0..n{
+        handlers.push(tokio::spawn(async move{
+            sleep(Duration::from_millis(duration_ms)).await;
+            i
+        }));
+    }
+
+    let mut ans = vec![];
+    for ele in handlers{
+        ans.push(ele.await.unwrap());
+    }
+
+    ans.sort();
+    ans
+
+
 }
 
 #[cfg(test)]
