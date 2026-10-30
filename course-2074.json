@@ -2,8 +2,8 @@
   "schema": 1,
   "courseId": 2074,
   "repository": "LearningOS/2026a-oscamp-base-yuanjinyu-IT",
-  "commit": "df4893d5c11f69db89d45b9edea15b311f53c52f",
-  "score": 74,
+  "commit": "bdf8319b254ece96aa4b37caab7ff648a3bc4fb6",
+  "score": 86,
   "totalScore": 100,
   "exercises": [
     {
@@ -107,16 +107,16 @@
     {
       "name": "stack_coroutine",
       "max": 6,
-      "score": 0,
-      "status": "fail",
-      "exitCode": 101
+      "score": 6,
+      "status": "pass",
+      "exitCode": 0
     },
     {
       "name": "green_threads",
       "max": 6,
-      "score": 0,
-      "status": "fail",
-      "exitCode": 101
+      "score": 6,
+      "status": "pass",
+      "exitCode": 0
     },
     {
       "name": "basic_future",
@@ -176,9 +176,9 @@
     }
   ],
   "student": "yuanjinyu-IT",
-  "runId": "40720295380",
+  "runId": "41029611254",
   "runAttempt": "1",
   "upload": {
-    "status": "accepted"
+    "status": "pending"
   }
 }
