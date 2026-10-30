@@ -49,6 +49,8 @@ pub enum TranslateResult {
 
 /// 单级页表，最多支持 `MAX_PAGES` 个虚拟页。
 pub struct SingleLevelPageTable {
+    // 页表就是这个 Vec<> 
+    // 元素为页表项
     entries: Vec<Option<PageTableEntry>>,
 }
 
@@ -65,19 +67,31 @@ impl SingleLevelPageTable {
     /// 提示：在 `entries[vpn]` 处存放一个 `PageTableEntry`。
     pub fn map(&mut self, vpn: usize, ppn: u32, flags: u8) {
         // TODO: 在页表中建立 vpn -> ppn 的映射
-        todo!()
+
+        let entry = PageTableEntry{
+            ppn,
+            flags
+        };
+        
+        // 虚拟页号作为 页表 当中的索引
+        self.entries[vpn]=Some(entry);
     }
 
     /// 取消虚拟页号 `vpn` 的映射。
     pub fn unmap(&mut self, vpn: usize) {
         // TODO: 将 entries[vpn] 设为 None
-        todo!()
+        self.entries[vpn]=None;
     }
 
     /// 查询虚拟页号 `vpn` 对应的页表项。
     pub fn lookup(&self, vpn: usize) -> Option<&PageTableEntry> {
+        
         // TODO: 返回 entries[vpn] 的引用（如果存在）
-        todo!()
+        
+        match &self.entries[vpn]{
+            Some(entry)=>Some(entry),
+            None=>None,
+        }
     }
 
     /// 将虚拟地址翻译为物理地址。
@@ -93,7 +107,33 @@ impl SingleLevelPageTable {
         // 提示：
         //   let vpn = (va >> PAGE_OFFSET_BITS) as usize;
         //   let offset = va & ((1 << PAGE_OFFSET_BITS) - 1);
-        todo!()
+
+        // 先查虚拟页号
+        let vpn = (va >> PAGE_OFFSET_BITS) as usize;
+
+        // 得到页内偏移
+        let offset = va & ( (1<<PAGE_OFFSET_BITS) - 1); 
+        
+
+        
+        if let Some(entry)=self.lookup(vpn){
+            if entry.flags & PTE_VALID==0{
+                return TranslateResult::PageFault;
+            }else{
+
+                // 检查权限位
+                if is_write && (entry.flags & PTE_WRITE ==0) {
+                    return TranslateResult::PermissionDenied;
+                }
+
+                // 全部检查完毕，翻译一下
+                return TranslateResult::Ok( (entry.ppn * PAGE_SIZE as u32) + offset);
+
+            }
+        }else{
+            return TranslateResult::PageFault;
+        }
+
     }
 }
 
@@ -101,22 +141,21 @@ impl SingleLevelPageTable {
 ///
 /// 提示：右移 PAGE_OFFSET_BITS 位。
 pub fn va_to_vpn(va: u32) -> usize {
-    // TODO
-    todo!()
+    va as usize >> PAGE_OFFSET_BITS 
 }
 
 /// 从虚拟地址中提取页内偏移。
 ///
 /// 提示：用掩码提取低 PAGE_OFFSET_BITS 位。
 pub fn va_to_offset(va: u32) -> u32 {
-    // TODO
-    todo!()
+    
+    va & (( 1 << PAGE_OFFSET_BITS ) -1)
 }
 
 /// 由物理页号和偏移量拼出物理地址。
 pub fn make_pa(ppn: u32, offset: u32) -> u32 {
-    // TODO
-    todo!()
+    
+    ppn  * PAGE_SIZE as u32 + offset
 }
 
 #[cfg(test)]

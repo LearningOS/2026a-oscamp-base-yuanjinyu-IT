@@ -91,7 +91,22 @@ impl Tlb {
         // TODO: 遍历 self.entries，查找 valid && vpn 匹配 && asid 匹配的条目
         // 命中：self.stats.hits += 1，返回 Some(entry.ppn)
         // 未命中：self.stats.misses += 1，返回 None
-        todo!()
+        match self.entries.iter()
+                    .find(|item|{
+                        item.vpn == vpn &&
+                        item.asid == asid && 
+                        item.valid == true
+                    }){
+                        Some(x)=>{
+                            self.stats.hits+=1;
+                            Some(x.ppn)
+                        },
+                        None=>{
+                            self.stats.misses+=1;
+                            None
+                        }
+                    }
+
     }
 
     /// 将一条新映射插入 TLB。
@@ -108,7 +123,31 @@ impl Tlb {
         //       if entry.valid && entry.vpn == vpn && entry.asid == asid { 更新并返回 }
         //   }
         //   写入 fifo_ptr 位置，然后推进指针
-        todo!()
+        
+
+        for entry in self.entries.iter_mut(){
+            // 找到匹配的，进行更新！
+            if entry.valid && entry.asid == asid && entry.vpn == vpn {
+                // 更新 ppn 和 flags
+                // 因为 vpn 和 asid 只是用来 check 的！
+                entry.ppn = ppn;
+                entry.flags = flags;
+                return ;
+            }
+        }
+
+        // 能走到这里，代表需要插入新的！
+        self.entries[self.fifo_ptr] = TlbEntry{
+            valid:true,
+            asid,
+            vpn,
+            ppn,
+            flags
+        };
+
+        // 更新指针
+        self.fifo_ptr = (self.fifo_ptr+1) % self.capacity;
+        
     }
 
     /// 刷新整个 TLB（将所有条目标记为无效）。
@@ -116,7 +155,12 @@ impl Tlb {
     /// 这对应于 RISC-V 的 `sfence.vma`（不带参数）操作。
     pub fn flush_all(&mut self) {
         // TODO: 将所有条目的 valid 设为 false
-        todo!()
+
+        // Rust 当中的迭代器是惰性的，需要进行消费
+        // 这里使用 count() 消费一下，使得迭代器适配器可以发挥作用！
+        // count() 本身不发挥作用
+        self.entries.iter_mut().map(|entry|entry.valid=false).count();
+    
     }
 
     /// 刷新指定虚拟页的 TLB 条目。
@@ -124,7 +168,13 @@ impl Tlb {
     /// 对应 `sfence.vma vaddr`：只刷新匹配 `vpn` 的条目（任意 ASID）。
     pub fn flush_by_vpn(&mut self, vpn: u64) {
         // TODO: 将所有 vpn 匹配的条目标记为无效
-        todo!()
+        
+        for ele in self.entries.iter_mut(){
+            if ele.vpn==vpn{
+                ele.valid=false;
+            }
+        }
+        
     }
 
     /// 刷新指定地址空间（ASID）的所有 TLB 条目。
@@ -132,13 +182,17 @@ impl Tlb {
     /// 对应 `sfence.vma zero, asid`：刷新该 ASID 的所有条目。
     pub fn flush_by_asid(&mut self, asid: u16) {
         // TODO: 将所有 asid 匹配的条目标记为无效
-        todo!()
+        for ele in self.entries.iter_mut(){
+            if ele.asid==asid{
+                ele.valid=false;
+            }
+        }
     }
 
     /// 返回当前有效条目的数量。
     pub fn valid_count(&self) -> usize {
-        // TODO: 统计 valid == true 的条目数
-        todo!()
+        // 过滤出来 vaild 有效的条目
+        self.entries.iter().filter(|ele|ele.valid==true).count()
     }
 }
 
@@ -194,7 +248,27 @@ impl Mmu {
     /// 5. 页表未命中 → 返回 None（缺页）
     pub fn translate(&mut self, vpn: u64) -> Option<u64> {
         // TODO: 实现 TLB + 页表的二级查找
-        todo!()
+        
+        match self.tlb.lookup(vpn, self.current_asid){
+            Some(ppn)=>Some(ppn),
+            None=>{
+                // page_mapping 本身在这里是引用类型的，但是不代表其中的 字段 也是
+                // 字段在传入的时候，直接隐式 Copy 了一份
+                // 肯定不能将 Mmu 当中的 PageMapping 给转移走啊！
+                for (asid,page_mapping) in self.page_table.iter(){
+                    // 匹配了，就直接回填，并且返回
+
+                    // 直接解引用不就可以了哈哈哈，隐式 Copy 进去一份传参
+                    if *asid == self.current_asid && page_mapping.vpn == vpn {
+                        self.tlb.insert(vpn, page_mapping.ppn, *asid, page_mapping.flags);
+                        return Some(page_mapping.ppn);
+                    }
+                }
+
+                // 走到这里，代表没有命中，直接返回 None
+                None
+            }   
+        }
     }
 }
 
